@@ -3,9 +3,9 @@ import DependentQueue from 'dependent-queue';
 import Executor from '../../../src/Executor';
 import { DependentQueueItemType } from '../../../src/types';
 
+import { delay } from '../../utils/time';
 import BaseType from './BaseType';
 import IType from './IType';
-import { delay } from '../../utils/time';
 
 class FirstType extends BaseType implements IType {
   public readonly type: string = 'first';
