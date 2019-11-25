@@ -47,10 +47,12 @@ class Executor<T> implements IExecutor<T> {
 
   public start() {
     if (this.isExecuting) return;
+    this.isExecuting = true;
     this.next();
   }
 
   public stop() {
+    if (!this.isExecuting) return;
     this.dependentQueue.off('existType', this.existItemsHandler);
     this.isExecuting = false;
   }
@@ -75,7 +77,6 @@ class Executor<T> implements IExecutor<T> {
 
   private resolveHandler(item: T) {
     const resolveHandlers = this.eventHandlers.resolve || [];
-    this.isExecuting = false;
     resolveHandlers.forEach((handler) => {
       handler(item);
     });
