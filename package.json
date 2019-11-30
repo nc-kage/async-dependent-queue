@@ -1,5 +1,5 @@
 {
-  "name": "async-queue",
+  "name": "async-dependent-queue",
   "version": "0.0.1",
   "description": "",
   "main": "dist/index.js",
@@ -11,12 +11,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/nc-kage/async-queue.git"
+    "url": "git+https://github.com/nc-kage/async-dependent-queue.git"
   },
   "author": "Pavlo Gusar",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/nc-kage/async-queue/issues"
+    "url": "https://github.com/nc-kage/async-dependent-queue/issues"
   },
   "dependencies": {
     "@types/lodash": "^4.14.149",
