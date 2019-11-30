@@ -77,6 +77,29 @@ describe('Executor', () => {
     expect(dq.checkQueueEmpty(firstType)).toBeTruthy();
   });
 
+  it('resumes execution after the finish', async () => {
+    const first = new FirstType();
+    const second = new FirstType();
+    const third = new FirstType();
+    const type = first.type;
+    const dq = new DependentQueue<DependentQueueItemType<IType>>(typeGetter);
+    const executor = new Executor<IType>(dq, type);
+    executor.setLimit(3);
+    dq.offer({ item: first, resolver: getResolver() });
+    executor.start();
+    await delay(110);
+    expect(executor.getCount()).toBe(1);
+    expect(dq.peek(type)).toBeNull();
+    dq.offer({ item: second, resolver: getResolver() });
+    await delay(110);
+    expect(executor.getCount()).toBe(2);
+    expect(dq.peek(type)).toBeNull();
+    dq.offer({ item: third, resolver: getResolver() });
+    await delay(110);
+    expect(executor.getCount()).toBe(3);
+    expect(dq.peek(type)).toBeNull();
+  });
+
   // tslint:disable-next-line:max-line-length
   it('resumes execution after the dependent item removing from queue and counter resetting', async () => {
     const first = new FirstType();

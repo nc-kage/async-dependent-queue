@@ -1,53 +1,59 @@
 import DependentQueue, { IDependentQueue } from 'dependent-queue';
-import isUndefined from 'lodash/isUndefined';
+import isArray from 'lodash/isArray';
 
-import { ONE_SECOND_MILLISECONDS } from './constants';
+import Executor from '../Executor';
+import IExecutor from '../Executor/IExecutor';
+import { AsyncQueueOfferParamsType, DependentQueueItemType } from '../types';
+import { DEFAULT_CAPACITY, ONE_SECOND_MILLISECONDS } from './constants';
 import IAsyncQueue from './IAsyncQueue';
 import IAsyncQueueStatic from './IAsyncQueueStatic';
-import { QueueItemParamsTypes } from './types';
 
 // tslint:disable-next-line:variable-name
 const AsyncQueue: IAsyncQueueStatic = class AsyncQueueClass<T> implements IAsyncQueue<T> {
   public static setCapacity(capacity: number, type?: string) {
-    if (type) return this.capacity[type] = capacity;
-    this.defaultCapacity = capacity;
+    if (!type) return this.defaultCapacity = capacity;
+    this.capacity[type] = capacity;
   }
 
-  public static setTypeGetter(typeGetter: (item: any) => string) {
-    this.typeGetter = typeGetter;
-    this.dependentQueue = new DependentQueue(typeGetter);
+  public static setResetInterval(time: number) {
+    this.resetInterval = time;
   }
 
-  private static defaultCapacity: number = 1;
+  public static setTypeGetter<K>(typeGetter?: (item: K) => string) {
+    this.setDependentQueue<K>(typeGetter);
+  }
+
+  public static getExecutor<K>(type: string): IExecutor<K> | null {
+    const { executors } = this;
+    if (executors[type]) return executors[type];
+    const dependentQueue = this.getDependentQueue<K>();
+    if (!dependentQueue) return null;
+    const executor = new Executor<K>(dependentQueue, type);
+    executors[type] = executor;
+    return executor;
+  }
+
   private static capacity: { [type: string]: number } = {};
-  private static dependentQueue: IDependentQueue<any> = new DependentQueue();
-  private static isQueueProcessingStart: boolean = false;
-  private static queueStatus: { [type: string]: number } = {};
-  private static queueInterval?: number;
-  private static typeList: string[] = [];
-  private static executingTypeList: { [type: string]: number } = {};
-  private static nextStepPromise?: Promise<number>;
-  private static typeGetter: (item: any) => string = (item: any): string => '1';
+  private static defaultCapacity: number = DEFAULT_CAPACITY;
+  private static resetInterval: number = ONE_SECOND_MILLISECONDS;
+  private static dependentQueue?: IDependentQueue<DependentQueueItemType<any>>;
+  private static executors: { [type: string]: IExecutor<any> } = {};
+  private static itemMap: Map<any, DependentQueueItemType<any>> = new Map();
+  private static typeGetter: (item: any) => string = (): string => '1';
 
-  private static addType(item: any) {
-    const { typeGetter, typeList } = this;
-    const type = typeGetter(item);
-    if (!typeList.includes(type)) typeList.push(type);
+  private static setDependQueueItem(dependentQueueItem: DependentQueueItemType<any>) {
+    this.itemMap.set(dependentQueueItem.item, dependentQueueItem);
   }
 
-  private static start() {
-    this.typeList.forEach((type: string) => {
-      this.typeStart(type);
-    });
-  }
-
-  private static typeStart(type: string) {
-    if (isUndefined(this.executingTypeList[type])) return;
-    this.next(type);
-  }
-
-  private static next(type: string) {
-
+  private static getDependQueueItem<K>(
+    item: K, resolver?: (item: K) => Promise<boolean>,
+  ): DependentQueueItemType<K> | null {
+    const dependentQueueItem = this.itemMap.get(item);
+    if (dependentQueueItem) return dependentQueueItem;
+    if (!resolver) return null;
+    const newDependentQueueItem = { item, resolver };
+    this.setDependQueueItem(newDependentQueueItem);
+    return newDependentQueueItem;
   }
 
   private static getCapacity(type?: string): number {
@@ -55,33 +61,99 @@ const AsyncQueue: IAsyncQueueStatic = class AsyncQueueClass<T> implements IAsync
     return this.capacity[type] || this.defaultCapacity;
   }
 
-  private status: Map<T, QueueItemParamsTypes<T>> = new Map<T, QueueItemParamsTypes<T>>();
-
-  public execute(): Promise<Map<T, boolean | boolean[]>> {
-    const { dependentQueue } = AsyncQueueClass;
-    const { status } = this;
-    const result = new Map<T, boolean | boolean[]>();
-    status.forEach((params: QueueItemParamsTypes<T>, item: T) => {
-      result.set(item, false);
-      dependentQueue.offer(item, params.depend);
-    });
-    AsyncQueueClass.start();
-    return Promise.resolve(result);
+  private static setDependentQueue<K>(typeGetter?: (item: K) => string) {
+    if (typeGetter) this.typeGetter = typeGetter;
+    this.dependentQueue = new DependentQueue<DependentQueueItemType<K>>((
+      queueItem: DependentQueueItemType<K>,
+    ): string  => this.typeGetter(queueItem.item));
   }
 
-  public offer(
-    params: {
-      item: T;
-      depend?: T | T[];
-      resolver?: (item: T) => Promise<boolean | boolean[]>;
-    },
-  ) {
-    const { item, depend, resolver } = params;
-    AsyncQueueClass.addType(item);
-    this.status.set(item, {
-      set: false,
-      ...(depend ? { depend } : {}),
-      ...(resolver ? { resolver } : {}),
+  private static getDependentQueue<K>(): IDependentQueue<DependentQueueItemType<K>> | null {
+    return (this.dependentQueue as IDependentQueue<DependentQueueItemType<K>>) || null;
+  }
+
+  private static addItemToQueue<K>(offerData: AsyncQueueOfferParamsType<K>): boolean | boolean[] {
+    const { item, resolver, depend } = offerData;
+    const isDependArray = isArray(depend);
+    let isDependError = false;
+    let dependQueueItemList;
+    if (depend) {
+      dependQueueItemList = ((isDependArray ? depend : [depend]) as K[])
+        .map((dependItem: K): DependentQueueItemType<K> | null => {
+          const dependQueueItem = AsyncQueueClass.getDependQueueItem<K>(dependItem);
+          if (!dependQueueItem) isDependError = true;
+          return dependQueueItem;
+        });
+    }
+    isDependError = Boolean(depend && isDependError);
+    if (isDependError) {
+      return isDependArray
+        ? (dependQueueItemList as Array<DependentQueueItemType<K> | null>)
+          .map((dependItem): boolean => Boolean(dependItem))
+        : Boolean((dependQueueItemList as Array<DependentQueueItemType<K> | null>)[0]);
+    }
+    const dependentQueueItem = AsyncQueueClass.getDependQueueItem<K>(item, resolver);
+    if (!dependentQueueItem) return false;
+    const dependentQueue = this.getDependentQueue<K>();
+    if (!dependentQueue) return false;
+    return dependentQueue.offer(
+      dependentQueueItem, dependQueueItemList as Array<DependentQueueItemType<K>>,
+    );
+  }
+
+  private result: Map<T, boolean | boolean[]> = new Map();
+  private offerList: Array<AsyncQueueOfferParamsType<T>> = [];
+  private executePromise?: Promise<Map<T, boolean | boolean[]>>;
+
+  public async execute(): Promise<Map<T, boolean | boolean[]>> {
+    const { offerList, executePromise } = this;
+    if (executePromise) return executePromise;
+    if (!offerList.length) return Promise.resolve(this.result);
+
+    this.executePromise = new Promise<Map<T, boolean | boolean[]>>((res: (
+      result: Map<T, boolean | boolean[]>,
+    ) => void) => {
+      Promise.all(offerList.map((offerData): Promise<Map<T, boolean | boolean[]>> => {
+        return this.executeOffer(offerData);
+      })).then(() => res(this.result));
+    });
+    return this.executePromise;
+  }
+
+  public offer(params: AsyncQueueOfferParamsType<T>) {
+    this.offerList.push(params);
+  }
+
+  private async executeOffer(
+    offerData: AsyncQueueOfferParamsType<T>,
+  ): Promise<Map<T, boolean | boolean[]>> {
+    const { result } = this;
+    const dependentQueue = AsyncQueueClass.getDependentQueue<T>();
+    const { item } = offerData;
+    if (!dependentQueue) {
+      result.set(item, false);
+      return Promise.resolve(result);
+    }
+    const type = AsyncQueueClass.typeGetter(item);
+    const executor = AsyncQueueClass.getExecutor<T>(type);
+    if (!executor) {
+      result.set(item, false);
+      return Promise.resolve(result);
+    }
+    return new Promise((res: (result: Map<T, boolean | boolean[]>) => void) => {
+      const addItemToQueueResult = AsyncQueueClass.addItemToQueue(offerData);
+      const isAddFailed = !addItemToQueueResult
+        || (addItemToQueueResult as boolean[]).some((itemResult): boolean => !itemResult);
+      if (isAddFailed) {
+        result.set(item, addItemToQueueResult);
+        return res(result);
+      }
+      executor.on('resolve', (resolveItem?: T) => {
+        if (resolveItem === item) {
+          result.set(item, true);
+          res(result);
+        }
+      });
     });
   }
 }
