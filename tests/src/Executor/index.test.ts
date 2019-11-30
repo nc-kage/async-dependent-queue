@@ -4,42 +4,34 @@ import Executor from '../../../src/Executor';
 import { DependentQueueItemType } from '../../../src/types';
 
 import { delay } from '../../utils/time';
-import BaseType from './BaseType';
-import IType from './IType';
+import BaseEntity from '../Entity/BaseEntity';
+import IEntity from '../Entity/IEntity';
 
-class FirstType extends BaseType implements IType {
+class FirstEntity extends BaseEntity implements IEntity {
   public readonly type: string = 'first';
 }
 
-class SecondType extends BaseType implements IType  {
+class SecondEntity extends BaseEntity implements IEntity  {
   public readonly type: string = 'second';
 }
 
-class ThirdType extends BaseType implements IType  {
-  public readonly type: string = 'third';
-}
-
-class FourthType extends BaseType implements IType  {
-  public readonly type: string = 'fourth';
-}
-
-const typeGetter = (queueItem: DependentQueueItemType<IType>): string => {
+const typeGetter = (queueItem: DependentQueueItemType<IEntity>): string => {
   return queueItem.item.type;
 };
 
 const getResolver = (
   result: boolean = true, timeout?: number,
-) => (item: IType): Promise<boolean> => item.execute(result, timeout);
+) => (item: IEntity): Promise<boolean> => item.execute(result, timeout);
 
 describe('Executor', () => {
   it('resumes execution after the counter resetting', async () => {
-    const first = new FirstType();
-    const second = new FirstType();
-    const third = new FirstType();
-    const fourth = new FirstType();
+    const first = new FirstEntity();
+    const second = new FirstEntity();
+    const third = new FirstEntity();
+    const fourth = new FirstEntity();
     const type = first.type;
-    const dq = new DependentQueue<DependentQueueItemType<IType>>(typeGetter);
-    const executor = new Executor<IType>(dq, type);
+    const dq = new DependentQueue<DependentQueueItemType<IEntity>>(typeGetter);
+    const executor = new Executor<IEntity>(dq, type);
     dq.offer({ item: first, resolver: getResolver() });
     dq.offer({ item: second, resolver: getResolver() });
     dq.offer({ item: third, resolver: getResolver() });
@@ -47,21 +39,21 @@ describe('Executor', () => {
     executor.start();
     await delay(110);
     expect(executor.getCount()).toBe(1);
-    expect((dq.peek(type) as DependentQueueItemType<IType>).item).toBe(second);
+    expect((dq.peek(type) as DependentQueueItemType<IEntity>).item).toBe(second);
     executor.resetCounter();
     executor.setLimit(2);
-    await delay(110);
-    expect((dq.peek(type) as DependentQueueItemType<IType>).item).toBe(fourth);
+    await delay(310);
+    expect((dq.peek(type) as DependentQueueItemType<IEntity>).item).toBe(fourth);
   });
 
   it('resumes execution after the dependent item removing from queue', async () => {
-    const first = new FirstType();
-    const depend = new SecondType();
-    const second = new FirstType();
+    const first = new FirstEntity();
+    const depend = new SecondEntity();
+    const second = new FirstEntity();
     const firstType = first.type;
     const dependType = depend.type;
-    const dq = new DependentQueue<DependentQueueItemType<IType>>(typeGetter);
-    const executor = new Executor<IType>(dq, firstType);
+    const dq = new DependentQueue<DependentQueueItemType<IEntity>>(typeGetter);
+    const executor = new Executor<IEntity>(dq, firstType);
     const dependQueueItem = { item: depend, resolver: getResolver() };
     dq.offer({ item: first, resolver: getResolver() });
     dq.offer(dependQueueItem);
@@ -78,12 +70,12 @@ describe('Executor', () => {
   });
 
   it('resumes execution after the finish', async () => {
-    const first = new FirstType();
-    const second = new FirstType();
-    const third = new FirstType();
+    const first = new FirstEntity();
+    const second = new FirstEntity();
+    const third = new FirstEntity();
     const type = first.type;
-    const dq = new DependentQueue<DependentQueueItemType<IType>>(typeGetter);
-    const executor = new Executor<IType>(dq, type);
+    const dq = new DependentQueue<DependentQueueItemType<IEntity>>(typeGetter);
+    const executor = new Executor<IEntity>(dq, type);
     executor.setLimit(3);
     dq.offer({ item: first, resolver: getResolver() });
     executor.start();
@@ -102,13 +94,13 @@ describe('Executor', () => {
 
   // tslint:disable-next-line:max-line-length
   it('resumes execution after the dependent item removing from queue and counter resetting', async () => {
-    const first = new FirstType();
-    const depend = new SecondType();
-    const second = new FirstType();
+    const first = new FirstEntity();
+    const depend = new SecondEntity();
+    const second = new FirstEntity();
     const firstType = first.type;
     const dependType = depend.type;
-    const dq = new DependentQueue<DependentQueueItemType<IType>>(typeGetter);
-    const executor = new Executor<IType>(dq, firstType);
+    const dq = new DependentQueue<DependentQueueItemType<IEntity>>(typeGetter);
+    const executor = new Executor<IEntity>(dq, firstType);
     const dependQueueItem = { item: depend, resolver: getResolver() };
     dq.offer({ item: first, resolver: getResolver() });
     dq.offer(dependQueueItem);

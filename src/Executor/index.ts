@@ -5,6 +5,7 @@ import IExecutor from './IExecutor';
 class Executor<T> implements IExecutor<T> {
   private limit: number = 1;
   private count: number = 0;
+  private executeTimestamp: number = 0;
   private isExecuting: boolean = false;
   private readonly dependentQueue: IDependentQueue<DependentQueueItemType<T>>;
   private readonly type: string;
@@ -57,6 +58,10 @@ class Executor<T> implements IExecutor<T> {
     this.isExecuting = false;
   }
 
+  public getExecuteTimestamp(): number {
+    return this.executeTimestamp;
+  }
+
   private async next() {
     const { dependentQueue, type, limit, count, isExecuting } = this;
     const queueItem = dependentQueue.peek(type);
@@ -72,6 +77,7 @@ class Executor<T> implements IExecutor<T> {
       dependentQueue.moveEnd(queueItem);
     }
     this.count += 1;
+    this.executeTimestamp = Date.now();
     this.next();
   }
 

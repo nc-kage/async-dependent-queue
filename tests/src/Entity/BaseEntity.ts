@@ -1,13 +1,13 @@
-import IType from './IType';
+import IEntity from './IEntity';
 
-class BaseType implements IType {
+class BaseEntity implements IEntity {
   private static index: number = 1;
 
   public readonly index: number;
   public readonly type: string = '';
   constructor() {
-    this.index = BaseType.index;
-    BaseType.index += 1;
+    this.index = BaseEntity.index;
+    BaseEntity.index += 1;
   }
 
   public async execute(result: boolean, timeout: number = 100): Promise<boolean> {
@@ -17,4 +17,4 @@ class BaseType implements IType {
   }
 }
 
-export default BaseType;
+export default BaseEntity;

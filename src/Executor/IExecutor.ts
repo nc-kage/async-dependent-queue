@@ -12,4 +12,5 @@ export default interface IExecutor<T> {
   ): void;
   start(): void;
   stop(): void;
+  getExecuteTimestamp(): number;
 }

@@ -1,0 +1,38 @@
+import { AsyncQueueOfferParamsType } from '../types';
+import IAsyncQueue from './IAsyncQueue';
+declare class AsyncQueue<T> implements IAsyncQueue<T> {
+    static setCapacity(capacity: number, type?: string): void;
+    static setResetInterval(time: number): void;
+    static setTypeGetter<K>(typeGetter?: (item: K) => string): void;
+    static waitStop(): Promise<undefined>;
+    private static capacity;
+    private static defaultCapacity;
+    private static resetInterval;
+    private static dependentQueue?;
+    private static executors;
+    private static itemMap;
+    private static resetIntervalInstance?;
+    private static stopOnNextStep;
+    private static stopPromise;
+    private static stopInnerHandler;
+    private static typeGetter;
+    private static updateExecutorsCapacity;
+    private static getExecutor;
+    private static setDependQueueItem;
+    private static getDependQueueItem;
+    private static getCapacity;
+    private static setDependentQueue;
+    private static getDependentQueue;
+    private static addItemToQueue;
+    private static stopResetInterval;
+    private static startResetInterval;
+    private static resetExecutors;
+    private result;
+    private offerList;
+    private executePromise?;
+    private executorList;
+    execute(): Promise<Map<T, boolean | boolean[]>>;
+    offer(params: AsyncQueueOfferParamsType<T>): void;
+    private executeOffer;
+}
+export default AsyncQueue;
